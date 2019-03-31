@@ -6,14 +6,14 @@
 #include <stdbool.h>
 #include <dirent.h>
 #define NO_OF_ALPHABETS 26
-#define MAX_WORD_SIZE 100
-#define ARRAY_SIZE(a) sizeof(a)/sizeof(a[0]) 
+#define ARRAY_SIZE(a) sizeof(a)/sizeof(a[0])
+char*currentfilename;
+int totalNumberOfFiles=0;
 
 // Alphabet size (# of symbols) 
 #define ALPHABET_SIZE (26) 
 
-// Converts key current character into index 
-// use only 'a' through 'z' and lower case 
+// Converts key character into index
 #define CHAR_TO_INDEX(c) ((int)c - (int)'a') 
 
 // trie node 
@@ -26,13 +26,12 @@ struct TrieNode
 	bool isEndOfWord;
 	int nodeIndex;
 	char* filename;
+	int numberOfFiles;
 }; 
 
 // Returns new trie node (initialized to NULLs)
 
 struct TrieNode *root;
-
-
 
 
 struct TrieNode *getNode(void) 
@@ -59,6 +58,7 @@ struct TrieNode *getNode(void)
 void insert(struct TrieNode *root, const char *key,int keyIndex, char*filename)
 {
 //	printf("%d,%s\n",keyIndex,key);
+	char oldFileName[50];
 	int level; 
 	int length = strlen(key); 
 	int index; 
@@ -76,32 +76,22 @@ void insert(struct TrieNode *root, const char *key,int keyIndex, char*filename)
 
 	// mark last node as leaf 
 	pCrawl->isEndOfWord = true;
-	pCrawl->nodeIndex=keyIndex;
-	pCrawl->filename=filename;
-}
+	pCrawl->numberOfFiles = pCrawl->numberOfFiles + 1;
+	if(pCrawl->filename!=NULL){
+//		perror("burda");
+//		strcpy(oldFileName,pCrawl->filename);
+		if(strcmp(pCrawl->filename,filename)==0){
+			pCrawl->numberOfFiles=pCrawl->numberOfFiles-1;
+		}
 
-
-// Returns true if key presents in trie, else false 
-bool search(struct TrieNode *root, const char *key) 
-{
-
-	int level; 
-	int length = strlen(key); 
-	int index; 
-	struct TrieNode *pCrawl = root; 
-
-	for (level = 0; level < length; level++) 
-	{ 
-		index = CHAR_TO_INDEX(key[level]); 
-
-		if (!pCrawl->children[index]) 
-			return false; 
-
-		pCrawl = pCrawl->children[index]; 
+//		printf("%s\n",oldFileName);
 	}
-//
+	pCrawl->filename=filename;
 
-	return (pCrawl != NULL && pCrawl->isEndOfWord); 
+	pCrawl->nodeIndex=keyIndex;
+//	printf("\n%s,%s,%d,%d\n",currentfilename,pCrawl->filename,strlen(currentfilename),strlen(pCrawl->filename));
+
+
 }
 
 
@@ -181,7 +171,7 @@ void readtxt(char * fName,char *filename){
 }
 
 
-void printWords(struct TrieNode* rootnode, char* wordArray, int pos,char*prefix )
+void printWords(struct TrieNode* rootnode, char* wordArray, int pos,char*prefix,int option )
 {
 
 	if(rootnode == NULL)
@@ -189,7 +179,7 @@ void printWords(struct TrieNode* rootnode, char* wordArray, int pos,char*prefix 
 
 	if(rootnode->isEndOfWord)
 	{
-		printWord(wordArray, pos,prefix,rootnode->nodeIndex,rootnode->filename);
+		printWord(wordArray, pos,prefix,rootnode->nodeIndex,rootnode->filename,rootnode->numberOfFiles,option);
 	}
 	for(int i=0; i<NO_OF_ALPHABETS; i++)
 	{
@@ -197,26 +187,43 @@ void printWords(struct TrieNode* rootnode, char* wordArray, int pos,char*prefix 
 		{
 			wordArray[pos] = i+'a';
 			//printf("asd:      %s      ",wordArray);
-			printWords(rootnode->children[i], wordArray, pos+1,prefix);
+			printWords(rootnode->children[i], wordArray, pos+1,prefix,option);
 		}
 	}
 }
 
-void printWord(char* str, int n,char*prefix,int nodeIndex, char*filename)
+void printWord(char* str, int n,char*prefix,int nodeIndex, char*filename,int numberOfFiles, int option)
 {
-	for (int j = 0; j < strlen(prefix); j++) {
-		if (str[j]!=prefix[j])
-			return;
+
+	if(option==1){
+		for (int j = 0; j < strlen(prefix); j++) {
+			if (str[j]!=prefix[j])
+				return;
+
+		}
+
+
+		for(int i=0; i<n; i++)
+		{
+			printf("%c",str[i]);
+		}
+		printf("     =>File name is: %s,Index number is: %d",filename,nodeIndex);
+		printf("\n");
+	}
+	if(option==2){
+		if(numberOfFiles==totalNumberOfFiles){
+			for(int i=0; i<n; i++)
+			{
+				printf("%c",str[i]);
+			}
+			printf("\n");
+
+		}
+
 
 	}
 
 
-	for(int i=0; i<n; i++)
-	{
-		printf("%c",str[i]);
-	}
-	printf("     =>File name is: %s,Index number is: %d:",filename,nodeIndex);
-	printf("\n");
 }
 
 void getPath(){
@@ -243,6 +250,9 @@ void getPath(){
 
 
 //				printf("%s\n",dir->d_name);
+                totalNumberOfFiles++;
+                currentfilename=dir->d_name;
+                //   printf("Current file name is:%s,\n",currentfilename);
 				strcpy(path,directory);
 
 				strcat(path,"/");
@@ -264,19 +274,43 @@ void getPath(){
 
 
 
-// Driver 
+// Driver
 int main(){
+	char* opt[10];
+	int option;
 
+	printf("Welcome to our program(-.-)\n\n");
 
 	char prefix[50];
 	root = getNode();
 	getPath();
 	char wordArray[100];
-	printf("\nEnter the prefix:");
-	fgets(prefix, sizeof(prefix), stdin);
-	prefix[strlen(prefix)-1]=NULL;
-	printWords(root, wordArray,0,prefix);
 
-	return 0; 
+	while(1) {
+        printf("\n\n\n-----------------------------\n1-)    For Prefix enter 1:\n2-)    For Common Words enter 2:\n3-)    For exit enter 3:");
+        fgets(opt, sizeof(opt), stdin);
+        option = atoi(&opt);
+        printf("\n");
+
+        if (option == 1) {
+            printf("Enter the prefix:");
+            fgets(prefix, sizeof(prefix), stdin);
+            prefix[strlen(prefix) - 1] = NULL;
+
+        }
+        else if (option == 2) {
+            printf("Common words of all %d files are:\n", totalNumberOfFiles);
+        }
+        else if(option==3){
+            printf("Good BYEE!!");
+            return 0;
+        }
+        else{
+            printf("Yoooo, Wrong input. Pleasee try againn!!!");
+        }
+
+        printWords(root, wordArray, 0, prefix, option);
+    }
+
 } 
 
